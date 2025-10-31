@@ -60,7 +60,7 @@ def run_ssh_with_password(host: str) -> str:
     """Runs SSH with password prompt handling."""
     global PASSWORD
     ssh_cmd = build_ssh_cmd(host)
-    child = pexpect.spawn(ssh_cmd, encoding="utf-8", timeout=25)
+    child = pexpect.spawn(ssh_cmd, encoding="utf-8", timeout=5)
 
     while True:
         idx = child.expect(
