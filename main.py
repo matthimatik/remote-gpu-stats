@@ -12,7 +12,7 @@ import pexpect
 
 console = Console()
 
-HOSTS = [f"cvpc{i}" for i in range(1, 36)]
+HOSTS = [f"cvpc{i}" for i in range(1, 36)] + ["kogspc17"]
 
 REMOTE_CMD = r"""
 CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print 100 - $8}')
