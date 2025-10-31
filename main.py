@@ -35,11 +35,12 @@ console.print(f"[bold]Running on {HOSTNAME}[/bold]")
 console.print(f"Detected: {'Windows' if IS_WINDOWS else 'Linux/macOS'}")
 console.print(f"Gateway mode: {'direct' if ON_GATEWAY else 'proxy-jump'}\n")
 
-PASSWORD = None
+# Always ask for the password once at startup.
+PASSWORD = getpass.getpass("SSH password for all hosts: ")
 
 
 def build_ssh_cmd(host: str) -> str:
-    """Return full SSH command string (not list, since we’ll use pexpect)."""
+    """Return full SSH command string (not list, since we use pexpect)."""
     parts = ["ssh", "-q", "-o", "StrictHostKeyChecking=no"]
     if not ON_GATEWAY:
         parts += ["-J", "rzssh1"]
@@ -58,9 +59,8 @@ def build_ssh_cmd(host: str) -> str:
 
 def run_ssh_with_password(host: str) -> str:
     """Runs SSH with password prompt handling."""
-    global PASSWORD
     ssh_cmd = build_ssh_cmd(host)
-    child = pexpect.spawn(ssh_cmd, encoding="utf-8", timeout=5)
+    child = pexpect.spawn(ssh_cmd, encoding="utf-8", timeout=10)
 
     while True:
         idx = child.expect(
@@ -79,8 +79,6 @@ def run_ssh_with_password(host: str) -> str:
         elif idx == 1:
             raise TimeoutError("Timeout")
         elif idx == 2:
-            if PASSWORD is None:
-                PASSWORD = getpass.getpass(f"Password for {host}: ")
             child.sendline(PASSWORD)
         elif idx == 3:
             raise PermissionError("Permission denied (wrong password)")
@@ -137,69 +135,4 @@ def collect_all():
         for f in as_completed(futures):
             host, data = f.result()
             results[host] = data
-            console.print(f"[cyan]Progress:[/cyan] {len(results)}/{total}")
-    return results
-
-
-def make_table(results):
-    table = Table(title="Cluster Overview (cvpc1–cvpc35)", box=box.MINIMAL_DOUBLE_HEAD)
-    table.add_column("Host", style="bold cyan")
-    table.add_column("CPU", justify="right")
-    table.add_column("RAM (GB)", justify="right")
-    table.add_column("GPU Util", justify="right")
-    table.add_column("VRAM (GB)", justify="right")
-    table.add_column("Load", justify="right", style="bold")
-    table.add_column("Status", style="dim")
-
-    for host in sorted(results.keys(), key=lambda x: int(x.replace("cvpc", ""))):
-        data = results[host]
-        if "error" in data:
-            table.add_row(host, "-", "-", "-", "-", "-", f"[red]{data['error']}[/red]")
-            continue
-
-        cpu = data["cpu"]
-        ram_ratio = data["ram_used"] / data["ram_total"] if data["ram_total"] else 0
-
-        if not data["gpus"]:
-            load_score = (cpu + ram_ratio * 100) / 2
-            color = "green" if load_score < 40 else "yellow" if load_score < 70 else "red"
-            table.add_row(
-                host,
-                f"{cpu:.0f}%",
-                f"{data['ram_used']:.1f}/{data['ram_total']:.0f}",
-                "-",
-                "-",
-                f"[{color}]{load_score:.0f}[/]",
-                "[yellow]No GPU[/yellow]",
-            )
-            continue
-
-        gpu_utils = [float(g["util"]) for g in data["gpus"]]
-        avg_gpu = sum(gpu_utils) / len(gpu_utils)
-        gpu_util_str = ", ".join([f"{g['util']}%" for g in data["gpus"]])
-        vram = ", ".join(
-            [f"{g['vram_used']:.1f}/{g['vram_total']:.0f}" for g in data["gpus"]]
-        )
-        load_score = (cpu + ram_ratio * 100 + avg_gpu) / 3
-        color = "green" if load_score < 40 else "yellow" if load_score < 70 else "red"
-
-        table.add_row(
-            host,
-            f"{cpu:.0f}%",
-            f"{data['ram_used']:.1f}/{data['ram_total']:.0f}",
-            gpu_util_str,
-            vram,
-            f"[{color}]{load_score:.0f}[/]",
-            "[green]OK[/green]",
-        )
-    return table
-
-
-def main():
-    console.print("[bold]Collecting system info...[/bold]\n")
-    results = collect_all()
-    console.print(make_table(results))
-
-
-if __name__ == "__main__":
-    main()
+            console.print(f"[cyan]Progress:[/cyan] {len(results)}/{tota
