@@ -36,7 +36,7 @@ console.print(f"Detected: {'Windows' if IS_WINDOWS else 'Linux/macOS'}")
 console.print(f"Gateway mode: {'direct' if ON_GATEWAY else 'proxy-jump'}\n")
 
 # Always ask for the password once at startup.
-PASSWORD = getpass.getpass("SSH password for all hosts: ")
+PASSWORD = getpass.getpass("SSH password for all cvpc hosts: ")
 
 
 def build_ssh_cmd(host: str) -> str:
@@ -135,4 +135,75 @@ def collect_all():
         for f in as_completed(futures):
             host, data = f.result()
             results[host] = data
-            console.print(f"[cyan]Progress:[/cyan] {len(results)}/{tota
+            console.print(f"[cyan]Progress:[/cyan] {len(results)}/{total}")
+    return results
+
+
+def make_table(results):
+    table = Table(title="Cluster Overview (cvpc1–cvpc35)", box=box.MINIMAL_DOUBLE_HEAD)
+    table.add_column("Host", style="bold cyan")
+    table.add_column("CPU", justify="right")
+    table.add_column("RAM (GB)", justify="right")
+    table.add_column("GPU Util", justify="right")
+    table.add_column("VRAM (GB)", justify="right")
+    table.add_column("Load", justify="right", style="bold")
+    table.add_column("Status", style="dim")
+
+    def sort_key(h):
+        try:
+            return int(re.sub(r"\D", "", h))
+        except Exception:
+            return h
+
+    for host in sorted(results.keys(), key=sort_key):
+        data = results[host]
+        if "error" in data:
+            table.add_row(host, "-", "-", "-", "-", "-", f"[red]{data['error']}[/red]")
+            continue
+
+        cpu = data["cpu"]
+        ram_ratio = data["ram_used"] / data["ram_total"] if data["ram_total"] else 0
+
+        if not data["gpus"]:
+            load_score = (cpu + ram_ratio * 100) / 2
+            color = "green" if load_score < 40 else "yellow" if load_score < 70 else "red"
+            table.add_row(
+                host,
+                f"{cpu:.0f}%",
+                f"{data['ram_used']:.1f}/{data['ram_total']:.0f}",
+                "-",
+                "-",
+                f"[{color}]{load_score:.0f}[/]",
+                "[yellow]No GPU[/yellow]",
+            )
+            continue
+
+        gpu_utils = [float(g["util"]) for g in data["gpus"]]
+        avg_gpu = sum(gpu_utils) / len(gpu_utils)
+        gpu_util_str = ", ".join([f"{g['util']}%" for g in data["gpus"]])
+        vram = ", ".join(
+            [f"{g['vram_used']:.1f}/{g['vram_total']:.0f}" for g in data["gpus"]]
+        )
+        load_score = (cpu + ram_ratio * 100 + avg_gpu) / 3
+        color = "green" if load_score < 40 else "yellow" if load_score < 70 else "red"
+
+        table.add_row(
+            host,
+            f"{cpu:.0f}%",
+            f"{data['ram_used']:.1f}/{data['ram_total']:.0f}",
+            gpu_util_str,
+            vram,
+            f"[{color}]{load_score:.0f}[/]",
+            "[green]OK[/green]",
+        )
+    return table
+
+
+def main():
+    console.print("[bold]Collecting system info...[/bold]\n")
+    results = collect_all()
+    console.print(make_table(results))
+
+
+if __name__ == "__main__":
+    main()
