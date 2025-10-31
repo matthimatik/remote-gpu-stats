@@ -1,0 +1,11 @@
+[project]
+name = "remote-gpu-stats"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "paramiko>=4.0.0",
+    "pexpect>=4.9.0",
+    "rich>=14.2.0",
+]
