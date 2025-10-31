@@ -5,10 +5,11 @@ import random
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import pexpect
 from rich import box
 from rich.console import Console
 from rich.table import Table
-import pexpect
 
 console = Console()
 
@@ -53,8 +54,12 @@ def build_ssh_cmd(host: str) -> str:
                 "-o",
                 "ControlPath=~/.ssh/cm-%r@%h:%p",
             ]
-    parts += [host, REMOTE_CMD]
-    return " ".join(parts)
+    # Build a quoted here-document so the local shell doesn't try to parse
+    # parentheses, quotes or other tokens inside the remote script.
+    ssh_opts = " ".join(parts)
+    script = REMOTE_CMD.strip()
+    # Use a quoted here-doc (<<'END') to pass the script verbatim to remote bash.
+    return f"{ssh_opts} {host} 'bash -s' <<'END'\n{script}\nEND"
 
 
 def run_ssh_with_password(host: str) -> str:
