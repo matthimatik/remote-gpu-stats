@@ -1,112 +1,51 @@
+import argparse
 import getpass
-import random
-import re
-import time
 
 from rich.console import Console
 
-from display_cluster_overview import make_table
-from jump_host import JumpHost, connect
-
-console = Console()
-
-HOSTS = [f"cvpc{i}" for i in range(20, 31)]
-# HOSTS = [f"cvpc{i}" for i in range(1, 36)] + ["kogspc17"]
-
-def get_remote_status(jump: JumpHost, host: str, password: str):
-    try:
-        chan = jump.get_channel(host)
-    except Exception as e:
-        return host, f"error: {type(e).__name__}: {e}"
-    ssh = None
-    try:
-        ssh = connect(
-            channel=chan,
-            target_host=host,
-            username="8hirsch",
-            password=password,
-        )
-
-        REMOTE_CMD = r"""
-        echo "USERS:$(who | wc -l)"
-        echo "CPU:$(top -bn1 | awk '/Cpu/ {print 100 - $8}')"
-        echo "RAM:$(free -m | awk '/Mem:/ {print $3, $2}')"
-        nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total \
-          --format=csv,noheader,nounits 2>/dev/null || echo "no_gpu"
-        echo "DISK:$(df -h /export | awk 'NR==2 {print $5, $2, $3}')"
-        """
-
-        stdin, stdout, stderr = ssh.exec_command(REMOTE_CMD, timeout=8)
-        out = stdout.read().decode().strip()
-        return host, out
-    except Exception as e:
-        return host, f"error: {type(e).__name__}: {e}"
-    finally:
-        if ssh:
-            ssh.close()
-        chan.close()
+from metrics_collector import MetricsCollector
+from table import make_table
 
 
-def parse_output(out: str):
-    data = {"gpus": []}
-    lines = [l.strip() for l in out.splitlines() if l.strip()]
+TOP_LEVEL_DOMAIN = "uni-hamburg.de"
+INFORMATIK_DOMAIN = f"informatik.{TOP_LEVEL_DOMAIN}"
 
-    for line in lines:
-        if line.startswith("USERS:"):
-            data["users"] = int(line.split(":")[1])
-        elif line.startswith("CPU:"):
-            data["cpu"] = float(line.split(":")[1])
-        elif line.startswith("RAM:"):
-            parts = line.split(":")[1].split()
-            data["ram_used"] = int(parts[0]) / 1024
-            data["ram_total"] = int(parts[1]) / 1024
-        elif line.startswith("DISK:"):
-            parts = line.split(":")[1].split()
-            data["disk_usage"] = {
-                "percent": parts[0],
-                "size": parts[1],
-                "used": parts[2],
-            }
-        elif "no_gpu" in line:
-            data["gpus"] = []
-        elif re.match(r"^\d+,", line):  # GPU info line
-            idx, name, util, mem_used, mem_total = [p.strip() for p in line.split(",")]
-            data["gpus"].append(
-                {
-                    "idx": int(idx),
-                    "name": name,
-                    "util": float(util),
-                    "vram_used": float(mem_used) / 1024,
-                    "vram_total": float(mem_total) / 1024,
-                }
-            )
+IDX = [1, 2, 3, 5, 7, 8, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 34, 35]
 
-    return data
+GATEWAY_HOST = f"rzssh1.{INFORMATIK_DOMAIN}"
+# HOSTS = [f"cvpc{i}" for i in range(20, 25)]
+# HOSTS = [f"cvpc{i}" for i in range(1, 36)] + [f"kogspc17"]
+HOSTS = [f"cvpc{i}" for i in IDX] + [f"kogspc17"]
+# HOSTS = [f"cvpc{i}" for i in range(9, 10)]  # Test with a single host
+
+HOSTS = [h + "." + INFORMATIK_DOMAIN for h in HOSTS]
 
 
-
-def collect_all():
-    results = {}
-    total = len(HOSTS)
-
-    jump_host = "rzssh1.informatik.uni-hamburg.de"
-    user_name = "8hirsch"
-    password = getpass.getpass("SSH password: ")
-
-    for h in HOSTS:
-        with JumpHost(jump_host, user_name, password) as jump:
-            time.sleep(random.uniform(0.3, 1.0))
-            host, data = get_remote_status(jump, h, password)
-            results[host] = parse_output(data)
-            console.print(f"[cyan]Progress:[/cyan] {len(results)}/{total}")
-    return results
+def cli():
+    parser = argparse.ArgumentParser(
+        description="Collect and display system metrics from remote hosts."
+    )
+    parser.add_argument(
+        "--username", type=str, help="SSH username for remote hosts", default="8hirsch"
+    )
+    return parser.parse_args()
 
 def main():
-    console.print("[bold]Collecting system info...[/bold]\n")
-    results = collect_all()
-    print(results)
-    console.print(make_table(results))
+    args = cli()
+    console = Console()
 
+    password = getpass.getpass("SSH password: ")
+    metrics_collector = MetricsCollector(
+        user_name=args.username, 
+        password=password,
+        gateway_host=GATEWAY_HOST,
+        hosts=HOSTS,
+    )
+    console.print(f"[bold]Collecting system info from {len(HOSTS)} hosts...[/bold]\n")
+    results = metrics_collector.collect_metrics()
+
+    # pprint(results)
+    console.print(make_table(results))
 
 if __name__ == "__main__":
     main()
