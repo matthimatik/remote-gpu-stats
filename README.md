@@ -1,6 +1,7 @@
-- num users logged in
-- Current cpu usage
-- RAM usage
-- GPU utilization
-- GPU memory usage
-- /export disk usage
+# Usage
+
+`uv run main.py <username>` where `<username>` is your SSH username for the informatik pcs.
+
+# Example
+
+![Example Screenshot](example.png)
