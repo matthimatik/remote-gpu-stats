@@ -15,11 +15,11 @@ def make_table(results: dict) -> Table:
     table.add_column("RAM (GB)", justify="right")
     table.add_column("GPU Util (%)", justify="right")
     table.add_column("VRAM (GB)", justify="right")
+    table.add_column("GPU Model", justify="left")
     table.add_column("Home Disk (%)", justify="right")
     table.add_column("Current Load", justify="right", style="bold")
     table.add_column("Top CPU User", justify="left")
 
-    # --- sort numerically by host number if present ---
     def host_key(item):
         host, _ = item
         match = re.search(r"\d+", host)
@@ -38,9 +38,11 @@ def make_table(results: dict) -> Table:
             vram_used = sum(g["vram_used"] for g in gpus)
             vram_total = sum(g["vram_total"] for g in gpus)
             vram_ratio = vram_used / vram_total * 100 if vram_total else 0
+            gpu_names = ", ".join(sorted(set(g["name"] for g in gpus)))
         else:
             avg_gpu = 0
             vram_used = vram_total = vram_ratio = 0
+            gpu_names = "—"
 
         disk = data["disk_usage"]
         load = (cpu + ram_ratio + avg_gpu) / 3
@@ -66,6 +68,7 @@ def make_table(results: dict) -> Table:
             f"[{ram_color}]{ram_used:.0f}/{ram_total:.0f}[/]",
             f"[{gpu_color}]{avg_gpu:.0f}[/]",
             f"[{vram_color}]{vram_used:.1f}/{vram_total:.0f}[/]",
+            gpu_names,
             f"[{disk_color}]{disk}[/]",
             f"[{load_color}]{load:.0f}[/]",
             f"[bold]{top_cpu_user}[/bold]",

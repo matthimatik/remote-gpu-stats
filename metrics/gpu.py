@@ -1,9 +1,10 @@
 from .metric import Metric
 
+
 class GPUMetric(Metric):
     identifier = "gpu"
     command = (
-        "nvidia-smi --query-gpu=index,utilization.gpu,memory.used,memory.total "
+        "nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total "
         "--format=csv,noheader,nounits 2>/dev/null || echo 'no_gpu'"
     )
 
@@ -13,10 +14,11 @@ class GPUMetric(Metric):
             if "no_gpu" in line:
                 return {"gpus": []}
             parts = [p.strip() for p in line.split(",")]
-            if len(parts) >= 4:
-                idx, util, mem_used, mem_total = parts
+            if len(parts) >= 5:
+                idx, name, util, mem_used, mem_total = parts
                 gpus.append({
-                    "idx": idx,
+                    "idx": int(idx),
+                    "name": name,
                     "util": float(util),
                     "vram_used": float(mem_used) / 1024,
                     "vram_total": float(mem_total) / 1024
