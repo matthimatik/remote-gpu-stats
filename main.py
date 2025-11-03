@@ -26,7 +26,7 @@ def cli():
         description="Collect and display system metrics from remote hosts."
     )
     parser.add_argument(
-        "--username", type=str, help="SSH username for remote hosts", default="8hirsch"
+        "username", type=str, help="SSH username for remote hosts",
     )
     return parser.parse_args()
 
