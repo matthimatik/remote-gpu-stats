@@ -3,7 +3,6 @@ from .metric import Metric
 class RAMMetric(Metric):
     identifier = "ram"
     command = "free -m | awk '/Mem:/ {print $3, $2}'"
-    columns = ["RAM Used (GB)", "RAM Total (GB)"]
 
     def parse(self, raw_output: str) -> dict:
         try:

@@ -6,7 +6,6 @@ class GPUMetric(Metric):
         "nvidia-smi --query-gpu=index,utilization.gpu,memory.used,memory.total "
         "--format=csv,noheader,nounits 2>/dev/null || echo 'no_gpu'"
     )
-    columns = ["GPU Util (%)", "VRAM (GB)"]
 
     def parse(self, raw_output: str) -> dict:
         gpus = []

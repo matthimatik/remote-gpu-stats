@@ -5,8 +5,6 @@ class Metric(ABC):
     """short metric identifier, e.g. 'cpu'"""
     command: str
     """shell command to collect data"""
-    columns: list[str]
-    """column names for display"""
 
     @abstractmethod
     def parse(self, raw_output: str) -> dict:

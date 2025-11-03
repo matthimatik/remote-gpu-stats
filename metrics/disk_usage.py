@@ -3,7 +3,6 @@ from .metric import Metric
 class DiskUsageMetric(Metric):
     identifier = "disk_usage"
     command = "df -h /export | awk 'NR==2 {print $5, $2, $3}'"
-    columns = ["Disk Usage (%)"]
 
     def parse(self, raw_output: str) -> dict:
         try:

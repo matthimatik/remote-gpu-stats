@@ -3,7 +3,6 @@ from .metric import Metric
 class CPUMetric(Metric):
     identifier = "cpu"
     command = "mpstat 1 1 | awk '/Average:/ {print 100 - $NF}'"
-    columns = ["CPU (%)"]
 
     def parse(self, raw_output: str) -> dict:
         try:
