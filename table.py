@@ -4,7 +4,6 @@ from rich.table import Table
 
 
 def make_table(results: dict) -> Table:
-
     table = Table(
         title="Cluster Overview",
         box=box.MINIMAL_DOUBLE_HEAD,
@@ -16,14 +15,22 @@ def make_table(results: dict) -> Table:
     table.add_column("RAM (GB)", justify="right")
     table.add_column("GPU Util (%)", justify="right")
     table.add_column("VRAM (GB)", justify="right")
-    table.add_column("Disk (%)", justify="right")
+    table.add_column("Home Disk (%)", justify="right")
     table.add_column("Current Load", justify="right", style="bold")
+    table.add_column("Top CPU User", justify="left")
 
-    for host, data in sorted(results.items()):
+    # --- sort numerically by host number if present ---
+    def host_key(item):
+        host, _ = item
+        match = re.search(r"\d+", host)
+        return int(match.group()) if match else float("inf")
+
+    for host, data in sorted(results.items(), key=host_key):
         cpu = data["cpu"]
         ram_used, ram_total = data["ram_used"], data["ram_total"]
         ram_ratio = ram_used / ram_total * 100 if ram_total else 0
         users = data["users"]
+        top_cpu_user = data.get("top_cpu_user", "N/A")
 
         gpus = data.get("gpus", [])
         if gpus:
@@ -38,7 +45,6 @@ def make_table(results: dict) -> Table:
         disk = data["disk_usage"]
         load = (cpu + ram_ratio + avg_gpu) / 3
 
-        # --- color functions ---
         def colorize(val: float, low=40, mid=70):
             if val < low:
                 return "green"
@@ -53,7 +59,6 @@ def make_table(results: dict) -> Table:
         disk_color = colorize(disk)
         load_color = colorize(load)
 
-        # --- add row ---
         table.add_row(
             host,
             str(users),
@@ -63,6 +68,7 @@ def make_table(results: dict) -> Table:
             f"[{vram_color}]{vram_used:.1f}/{vram_total:.0f}[/]",
             f"[{disk_color}]{disk}[/]",
             f"[{load_color}]{load:.0f}[/]",
+            f"[bold]{top_cpu_user}[/bold]",
         )
 
     return table

@@ -1,12 +1,12 @@
 from fabric import Connection, SerialGroup, Result
-from metrics import GPUMetric, RAMMetric, CPUMetric, UserMetric, DiskUsageMetric, Metric
+from metrics import GPUMetric, RAMMetric, CPUMetric, UserMetric, DiskUsageMetric, Metric, TopCpuUserMetric
 
 
 
 class MetricsCollector:
     # TODO: gateway and pool should be passed to constructor
     
-    METRICS: list[Metric] = [CPUMetric(), UserMetric(), DiskUsageMetric(), GPUMetric(), RAMMetric()]
+    METRICS: list[Metric] = [CPUMetric(), UserMetric(), DiskUsageMetric(), GPUMetric(), RAMMetric(), TopCpuUserMetric()]
 
     def __init__(
         self,
