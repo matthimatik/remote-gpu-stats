@@ -12,6 +12,7 @@ def make_table(results: dict) -> Table:
     table.add_column("Host", style="bold cyan")
     table.add_column("Users", justify="right")
     table.add_column("CPU (%)", justify="right")
+    table.add_column("CPU Cores", justify="right")
     table.add_column("RAM (GB)", justify="right")
     table.add_column("GPU Util (%)", justify="right")
     table.add_column("VRAM (GB)", justify="right")
@@ -32,6 +33,8 @@ def make_table(results: dict) -> Table:
         users = data["users"]
         top_cpu_user = data.get("top_cpu_user", "N/A")
 
+        num_cpu_cores = data.get("num_cpu_cores", "—")
+
         gpus = data.get("gpus", [])
         if gpus:
             avg_gpu = sum(g["util"] for g in gpus) / len(gpus)
@@ -42,7 +45,7 @@ def make_table(results: dict) -> Table:
         else:
             avg_gpu = 0
             vram_used = vram_total = vram_ratio = 0
-            gpu_names = "—"
+            gpu_names = "-"
 
         disk = data["disk_usage"]
         load = (cpu + ram_ratio + avg_gpu) / 3
@@ -65,6 +68,7 @@ def make_table(results: dict) -> Table:
             host,
             str(users),
             f"[{cpu_color}]{cpu:.0f}[/]",
+            str(num_cpu_cores),
             f"[{ram_color}]{ram_used:.0f}/{ram_total:.0f}[/]",
             f"[{gpu_color}]{avg_gpu:.0f}[/]",
             f"[{vram_color}]{vram_used:.1f}/{vram_total:.0f}[/]",
