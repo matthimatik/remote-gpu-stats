@@ -1,4 +1,5 @@
 from fabric import Connection, SerialGroup, Result
+from fabric.exceptions import GroupException 
 from metrics import GPUMetric, RAMMetric, CPUMetric, UserMetric, DiskUsageMetric, Metric, TopCpuUserMetric, NumCpuCoresMetric
 
 
@@ -42,9 +43,14 @@ class MetricsCollector:
 
         cmd = self._build_remote_command(self.METRICS)
 
-        results = pool.run(cmd, hide=True, timeout=10)
+        try:
+            results = pool.run(cmd, hide=True, timeout=10)
+        except GroupException as exc:
+            results = exc.result
+            for conn, result in results.failed.items():
+                print(f"Host {conn} failed: {result}")
 
-        return self._parse_output(results)
+        return self._parse_output(results.succeeded)
 
     def _build_remote_command(self, metrics: list[Metric]) -> str:
         cmd = ""
