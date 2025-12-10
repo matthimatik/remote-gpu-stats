@@ -1,0 +1,12 @@
+{
+    "configurations": [
+        {
+            "name": "main.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "main.py",
+            "console": "integratedTerminal",
+            "args": "8hirsch"
+        }
+    ]
+}
