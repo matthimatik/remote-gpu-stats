@@ -1,6 +1,6 @@
 from fabric import Connection, SerialGroup, Result
 from fabric.exceptions import GroupException 
-from metrics import GPUMetric, RAMMetric, CPUMetric, UserMetric, DiskUsageMetric, Metric, TopCpuUserMetric, NumCpuCoresMetric
+from remote_gpu_stats.metrics import GPUMetric, RAMMetric, CPUMetric, UserMetric, DiskUsageMetric, Metric, TopCpuUserMetric, NumCpuCoresMetric
 
 
 

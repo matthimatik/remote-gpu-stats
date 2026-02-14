@@ -363,7 +363,7 @@ wheels = [
 [[package]]
 name = "remote-gpu-stats"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "fabric" },
     { name = "rich" },

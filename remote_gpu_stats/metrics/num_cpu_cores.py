@@ -1,4 +1,4 @@
-from metrics.metric import Metric
+from . import Metric
 
 
 class NumCpuCoresMetric(Metric):

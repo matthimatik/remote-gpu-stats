@@ -1,4 +1,4 @@
-from .metric import Metric
+from . import Metric
 
 class RAMMetric(Metric):
     identifier = "ram"

@@ -1,4 +1,4 @@
-from metrics.metric import Metric
+from . import Metric
 
 class TopCpuUserMetric(Metric):
     identifier = "top_cpu_user"

@@ -3,14 +3,15 @@ import getpass
 
 from rich.console import Console
 
-from metrics_collector import MetricsCollector
-from table import make_table
+from remote_gpu_stats.metrics_collector import MetricsCollector
+from remote_gpu_stats.table import make_table
 
 
 TOP_LEVEL_DOMAIN = "uni-hamburg.de"
 INFORMATIK_DOMAIN = f"informatik.{TOP_LEVEL_DOMAIN}"
 
-IDX = [1, 3, 7, 8, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31, 34, 35]
+IDX = [3, 4, 5, 7, 8, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 34, 35]
+# IDX = [i for i in range(1, 36)]  # all cvpcs
 
 GATEWAY_HOST = f"rzssh1.{INFORMATIK_DOMAIN}"
 # HOSTS = [f"cvpc{i}" for i in range(20, 25)]
