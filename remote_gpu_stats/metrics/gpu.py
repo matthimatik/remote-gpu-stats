@@ -19,7 +19,7 @@ class GPUMetric(Metric):
                 gpus.append({
                     "idx": int(idx),
                     "name": name,
-                    "util": float(util),
+                    "util": float(util) if util != "[N/A]" else 0.0,
                     "vram_used": float(mem_used) / 1024,
                     "vram_total": float(mem_total) / 1024
                 })
