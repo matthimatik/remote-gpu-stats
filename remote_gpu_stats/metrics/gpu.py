@@ -16,7 +16,6 @@ class GPUMetric(Metric):
             parts = [p.strip() for p in line.split(",")]
             if len(parts) >= 5:
                 idx, name, util, mem_used, mem_total = parts
-                print(f"Parsed GPU: idx={idx}, name={name}, util={util}, mem_used={mem_used}, mem_total={mem_total}")
                 gpus.append({
                     "idx": int(idx),
                     "name": name,
