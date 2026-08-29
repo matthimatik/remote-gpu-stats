@@ -40,13 +40,6 @@ def cli():
              "used unless this flag is given. Fails loudly if the key "
              "cannot authenticate.",
     )
-    parser.add_argument(
-        "--timeout",
-        type=float,
-        default=120.0,
-        help="Overall collection budget in seconds. Hosts that are still "
-             "hanging after this are aborted. Default: 120.",
-    )
     return parser.parse_args()
 
 
@@ -110,7 +103,6 @@ def main():
         key_filename=key_filename,
         gateway_host=GATEWAY_HOST,
         hosts=HOSTS,
-        overall_timeout=args.timeout,
     )
     console.print(f"[bold]Collecting system info from {len(HOSTS)} hosts...[/bold]\n")
     results = metrics_collector.collect_metrics()

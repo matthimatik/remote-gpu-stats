@@ -12,10 +12,11 @@ By default you are prompted for your SSH password.
 
 ## Options
 
-| Flag               | Description                                                                                      |
-|--------------------|--------------------------------------------------------------------------------------------------|
-| `--use-default-key`| Authenticate with your local SSH key instead of a password (see above).                          |
-| `--timeout <sec>`  | Overall collection budget in seconds. Hosts still hanging after this are aborted. Default: 120.  |
+| Flag                | Description                                                                                      |
+|---------------------|--------------------------------------------------------------------------------------------------|
+| `--use-default-key` | Authenticate with your local SSH key instead of a password (see above).                          |
+
+Hosts that do not respond within 5 seconds are skipped and reported as such; the remaining hosts are still collected.
 
 # Example
 

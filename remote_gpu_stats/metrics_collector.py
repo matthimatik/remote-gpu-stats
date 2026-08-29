@@ -1,7 +1,6 @@
 import threading
 
 from fabric import Connection, SerialGroup, Result, Config
-from fabric.exceptions import GroupException
 from paramiko import SSHConfig
 from remote_gpu_stats.metrics import GPUMetric, RAMMetric, CPUMetric, UserMetric, DiskUsageMetric, Metric, TopCpuUserMetric, NumCpuCoresMetric
 
@@ -11,6 +10,10 @@ class MetricsCollector:
     # TODO: gateway and pool should be passed to constructor
     
     METRICS: list[Metric] = [CPUMetric(), UserMetric(), DiskUsageMetric(), GPUMetric(), RAMMetric(), TopCpuUserMetric(), NumCpuCoresMetric()]
+    # A host that has not produced an answer within this many seconds is
+    # declared unreachable and skipped so the run is not blocked for the
+    # minutes a gateway channel-open toward a dead host can take.
+    PER_HOST_TIMEOUT = 5.0
 
     def __init__(
         self,
@@ -19,7 +22,6 @@ class MetricsCollector:
         hosts: list[str],
         password: str | None = None,
         key_filename: str | None = None,
-        overall_timeout: float = 120.0,
     ):
         if not password and not key_filename:
             raise ValueError("Either a password or key_filename must be provided")
@@ -28,7 +30,6 @@ class MetricsCollector:
         self.key_filename = key_filename
         self.gateway_host = gateway_host
         self.hosts = hosts
-        self.overall_timeout = overall_timeout
 
     def _connect_kwargs(self) -> dict:
         if self.key_filename:
@@ -51,10 +52,12 @@ class MetricsCollector:
         # HostName transform that appends the campus domain) do not rewrite
         # the fully-qualified hostnames we already build here. Hosts are
         # queried serially because the gateway enforces a per-connection
-        # session limit (OpenSSH MaxSessions defaults to 10); a watchdog
-        # bounds the whole run because an unreachable host can block its
-        # gateway channel-open for a long time irrespective of the
-        # socket/auth timeouts below.
+        # session limit (OpenSSH MaxSessions defaults to 10). The local
+        # socket/auth/banner timeouts below only bound the direct TCP connect;
+        # behind a gateway that connect happens inside the gateway, so an
+        # unreachable host can block its channel-open for far longer. Each host
+        # therefore runs in its own thread bounded by PER_HOST_TIMEOUT so a
+        # dead host is skipped quickly without stalling the whole run.
         config = Config(ssh_config=SSHConfig())
 
         gateway = Connection(
@@ -76,30 +79,30 @@ class MetricsCollector:
 
         results: dict[Connection, Result] = {}
 
-        def _run() -> None:
-            nonlocal results
-            try:
-                results = pool.run(cmd, hide=True, timeout=10)
-            except GroupException as exc:
-                results = exc.result
-                for conn, result in results.failed.items():
-                    print(f"Host {conn} failed: {result}")
+        for conn in pool:
+            holder: dict = {}
 
-        runner = threading.Thread(target=_run, daemon=True)
-        runner.start()
-        runner.join(self.overall_timeout)
-        if runner.is_alive():
-            print(
-                f"Collection exceeded {self.overall_timeout}s, "
-                "aborting remaining hosts"
-            )
-            gateway.close()  # force stuck channel opens / commands to fail
-            pool.close()
-            runner.join(10)
+            def _run_one() -> None:
+                try:
+                    holder["result"] = conn.run(cmd, hide=True, timeout=self.PER_HOST_TIMEOUT)
+                except Exception as exc:
+                    holder["error"] = exc
+
+            worker = threading.Thread(target=_run_one, daemon=True)
+            worker.start()
+            worker.join(self.PER_HOST_TIMEOUT)
+            if worker.is_alive():
+                print(f"Host {conn} did not respond within "
+                      f"{self.PER_HOST_TIMEOUT:.0f}s, skipping")
+                continue
+            if "error" in holder:
+                print(f"Host {conn} failed: {holder['error']}")
+                continue
+            results[conn] = holder["result"]
 
         if not results:
             return {}
-        return self._parse_output(results.succeeded)
+        return self._parse_output(results)
 
     def _build_remote_command(self, metrics: list[Metric]) -> str:
         cmd = ""
