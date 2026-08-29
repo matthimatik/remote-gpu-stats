@@ -113,15 +113,39 @@ class MetricsCollector:
     def _parse_output(self, results: dict[Connection, Result]) -> dict:
         all_data = {}
 
+        # Split the combined output into per-metric blocks. A block starts at a
+        # line prefixed with a metric identifier and extends until the next
+        # metric identifier line. Some metric commands emit multiple lines (e.g.
+        # nvidia-smi for a host with several GPUs), so every line belonging to a
+        # metric must be passed to that metric's parse().
+        def _blocks(lines: list[str]):
+            current_id = None
+            block = []
+            for line in lines:
+                matched = next(
+                    (m.identifier for m in self.METRICS
+                     if line.startswith(m.identifier + ":")),
+                    None,
+                )
+                if matched is not None:
+                    if current_id is not None:
+                        yield current_id, block
+                    current_id = matched
+                    block = [line[len(matched) + 1:].strip()]
+                elif current_id is not None:
+                    block.append(line)
+            if current_id is not None:
+                yield current_id, block
+
         for connection, result in results.items():
             data = {}
             lines = [l.strip() for l in result.stdout.splitlines() if l.strip()]
-            for line in lines:
+            for identifier, block in _blocks(lines):
                 for metric in self.METRICS:
-                    if line.startswith(metric.identifier + ":"):
-                        parsed = metric.parse(line[len(metric.identifier) + 1 :].strip())
+                    if metric.identifier == identifier:
+                        parsed = metric.parse("\n".join(block))
                         data.update(parsed)
                         break
             all_data[connection.host.split(".")[0]] = data
-            
+
         return all_data
