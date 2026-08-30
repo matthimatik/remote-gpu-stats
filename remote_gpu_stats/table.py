@@ -53,10 +53,12 @@ def make_table(results: dict) -> Table:
         num_cpu_cores = data.get("num_cpu_cores", "—")
 
         gpus = sorted(data.get("gpus", []), key=lambda g: g.get("idx", -1))
+        single_gpu = len(gpus) == 1
         if gpus:
             avg_gpu = sum(g["util"] for g in gpus) / len(gpus)
             gpu_util_cell = "\n".join(
-                f"[{colorize(g['util'])}]{fmt_gpu(g)} {g['util']:.0f}%[/]"
+                f"[{colorize(g['util'])}]"
+                f"{'' if single_gpu else fmt_gpu(g) + ' '}{g['util']:.0f}%[/]"
                 for g in gpus
             )
             vram_cell = "\n".join(
