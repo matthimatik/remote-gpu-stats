@@ -10,16 +10,16 @@ def make_table(results: dict) -> Table:
         header_style="bold magenta",
     )
     table.add_column("Host", style="bold cyan")
-    table.add_column("Users", justify="right")
-    table.add_column("CPU (%)", justify="right")
     table.add_column("CPU Cores", justify="right")
+    table.add_column("CPU (%)", justify="right")
     table.add_column("RAM (GB)", justify="right")
-    table.add_column("GPU Util (%)", justify="right")
-    table.add_column("VRAM (GB)", justify="right")
     table.add_column("GPU Model", justify="left")
+    table.add_column("VRAM (GB)", justify="right")
+    table.add_column("GPU Util (%)", justify="right")
     table.add_column("Home Disk (%)", justify="right")
     table.add_column("Current Load", justify="right", style="bold")
-    table.add_column("Top CPU User", justify="left")
+    table.add_column("Active Users", justify="right")
+    table.add_column("Top Users", justify="left")
 
     def host_key(item):
         host, _ = item
@@ -85,15 +85,15 @@ def make_table(results: dict) -> Table:
 
         table.add_row(
             host,
-            str(users),
-            f"[{cpu_color}]{cpu:.0f}[/]",
             str(num_cpu_cores),
+            f"[{cpu_color}]{cpu:.0f}[/]",
             f"[{ram_color}]{ram_used:.0f}/{ram_total:.0f}[/]",
-            gpu_util_cell,
-            vram_cell,
             gpu_names,
+            vram_cell,
+            gpu_util_cell,
             f"[{disk_color}]{disk}[/]",
             f"[{load_color}]{load:.0f}[/]",
+            str(users),
             f"[bold]{top_cpu_user}[/bold]",
         )
 
