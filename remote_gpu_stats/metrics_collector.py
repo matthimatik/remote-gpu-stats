@@ -18,7 +18,7 @@ class MetricsCollector:
     # Upper bound for the single gateway-side DNS enumeration command.
     DISCOVERY_TIMEOUT = 30.0
     # Temporary override: cvgpu1 takes longer than usual to connect.
-    HOST_TIMEOUTS = {"cvgpu1": 50.0}
+    HOST_TIMEOUTS = {"cvgpu1": 60.0}
 
     def __init__(
         self,
