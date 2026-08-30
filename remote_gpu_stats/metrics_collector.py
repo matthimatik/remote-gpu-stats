@@ -17,6 +17,8 @@ class MetricsCollector:
     PER_HOST_TIMEOUT = 8.0
     # Upper bound for the single gateway-side DNS enumeration command.
     DISCOVERY_TIMEOUT = 30.0
+    # Temporary override: cvgpu1 takes longer than usual to connect.
+    HOST_TIMEOUTS = {"cvgpu1": 50.0}
 
     def __init__(
         self,
@@ -88,19 +90,22 @@ class MetricsCollector:
 
         for conn in pool:
             holder: dict = {}
+            timeout = self.HOST_TIMEOUTS.get(
+                conn.host.split(".")[0], self.PER_HOST_TIMEOUT
+            )
 
             def _run_one() -> None:
                 try:
-                    holder["result"] = conn.run(cmd, hide=True, timeout=self.PER_HOST_TIMEOUT)
+                    holder["result"] = conn.run(cmd, hide=True, timeout=timeout)
                 except Exception as exc:
                     holder["error"] = exc
 
             worker = threading.Thread(target=_run_one, daemon=True)
             worker.start()
-            worker.join(self.PER_HOST_TIMEOUT)
+            worker.join(timeout)
             if worker.is_alive():
                 print(f"Host {conn} did not respond within "
-                      f"{self.PER_HOST_TIMEOUT:.0f}s, skipping")
+                      f"{timeout:.0f}s, skipping")
                 continue
             if "error" in holder:
                 print(f"Host {conn} failed: {holder['error']}")
