@@ -4,6 +4,7 @@ import os
 
 from rich.console import Console
 
+from remote_gpu_stats.host_discovery import build_discovery_command
 from remote_gpu_stats.metrics_collector import MetricsCollector
 from remote_gpu_stats.table import make_table
 
@@ -14,13 +15,22 @@ INFORMATIK_DOMAIN = f"informatik.{TOP_LEVEL_DOMAIN}"
 # IDX = [3, 4, 5, 7, 8, 18, 20, 21, 22, 23, 24, 25, 26, 27, 28, 30, 31, 32, 34, 35]
 IDX = [i for i in range(1, 36)]  # all cvpcs
 
-GATEWAY_HOST = f"rzssh1.{INFORMATIK_DOMAIN}"
-# HOSTS = [f"cvpc{i}" for i in range(20, 25)]
-# HOSTS = [f"cvpc{i}" for i in range(1, 36)] + [f"kogspc17"]
-HOSTS = [f"cvpc{i}" for i in IDX] + [f"kogspc17"]
-# HOSTS = [f"cvpc{i}" for i in range(9, 10)]  # Test with a single host
+BLADES = [f"ccblade{i}" for i in range(1, 9)]      # general hosts
+CVGPUS = [f"cvgpu{i}" for i in range(1, 3)]        # computer vision dpt.
+EXTRA_HOSTS = ["kogspc17"]
+
+HOSTS = [f"cvpc{i}" for i in IDX] + EXTRA_HOSTS + BLADES + CVGPUS
+# HOSTS = [f"cvpc{i}" for i in range(20, 25)]  # Test with a subset
+# HOSTS = [f"cvpc{i}" for i in range(9, 10)]   # Test with a single host
 
 HOSTS = [h + "." + INFORMATIK_DOMAIN for h in HOSTS]
+
+# DNS ranges probed for hosts beyond the static list on every run (unless
+# disabled). Generous upper bounds so newly-added machines are not missed;
+# only hosts that resolve are queried.
+DISCOVERY_PREFIXES = {"ccblade": 50, "cvpc": 50, "cvgpu": 10, "kogspc": 20}
+
+GATEWAY_HOST = f"rzssh1.{INFORMATIK_DOMAIN}"
 
 PASSWORD_ENV = "REMOTE_GPU_STATS_PASSWORD"
 
@@ -39,6 +49,12 @@ def cli():
              "(or ~/.ssh/id_rsa) instead of a password. Key auth is not "
              "used unless this flag is given. Fails loudly if the key "
              "cannot authenticate.",
+    )
+    parser.add_argument(
+        "--no-discover",
+        action="store_true",
+        help="Skip DNS host discovery through the gateway and query only "
+             "the static host list.",
     )
     return parser.parse_args()
 
@@ -97,12 +113,18 @@ def main():
     else:
         password = resolve_password()
 
+    discovery_command = None
+    if not args.no_discover:
+        discovery_command = build_discovery_command(DISCOVERY_PREFIXES, INFORMATIK_DOMAIN)
+        console.print("[bold]Discovering additional hosts via DNS...[/bold]\n")
+
     metrics_collector = MetricsCollector(
         user_name=args.username,
         password=password,
         key_filename=key_filename,
         gateway_host=GATEWAY_HOST,
         hosts=HOSTS,
+        discovery_command=discovery_command,
     )
     console.print(f"[bold]Collecting system info from {len(HOSTS)} hosts...[/bold]\n")
     results = metrics_collector.collect_metrics()

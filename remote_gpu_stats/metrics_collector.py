@@ -2,6 +2,7 @@ import threading
 
 from fabric import Connection, SerialGroup, Result, Config
 from paramiko import SSHConfig
+from remote_gpu_stats.host_discovery import parse_discovery_output
 from remote_gpu_stats.metrics import GPUMetric, RAMMetric, CPUMetric, UserMetric, DiskUsageMetric, Metric, TopCpuUserMetric, NumCpuCoresMetric
 
 
@@ -13,7 +14,9 @@ class MetricsCollector:
     # A host that has not produced an answer within this many seconds is
     # declared unreachable and skipped so the run is not blocked for the
     # minutes a gateway channel-open toward a dead host can take.
-    PER_HOST_TIMEOUT = 5.0
+    PER_HOST_TIMEOUT = 8.0
+    # Upper bound for the single gateway-side DNS enumeration command.
+    DISCOVERY_TIMEOUT = 30.0
 
     def __init__(
         self,
@@ -22,6 +25,7 @@ class MetricsCollector:
         hosts: list[str],
         password: str | None = None,
         key_filename: str | None = None,
+        discovery_command: str | None = None,
     ):
         if not password and not key_filename:
             raise ValueError("Either a password or key_filename must be provided")
@@ -30,6 +34,7 @@ class MetricsCollector:
         self.key_filename = key_filename
         self.gateway_host = gateway_host
         self.hosts = hosts
+        self.discovery_command = discovery_command
 
     def _connect_kwargs(self) -> dict:
         if self.key_filename:
@@ -67,8 +72,10 @@ class MetricsCollector:
             config=config,
         )
 
+        hosts = self._resolve_hosts(gateway)
+
         pool = SerialGroup(
-            *self.hosts,
+            *hosts,
             user=self.user_name,
             connect_kwargs=connect_kwargs,
             gateway=gateway,
@@ -103,6 +110,37 @@ class MetricsCollector:
         if not results:
             return {}
         return self._parse_output(results)
+
+    def _resolve_hosts(self, gateway: Connection) -> list[str]:
+        """Return the static host list, plus any hosts the single gateway-side
+        DNS enumeration command resolved. Discovery is best-effort: any failure
+        only logs a warning and the static list is still queried.
+        """
+        hosts = list(self.hosts)
+        if not self.discovery_command:
+            return hosts
+        try:
+            result = gateway.run(
+                self.discovery_command, hide=True, timeout=self.DISCOVERY_TIMEOUT
+            )
+            discovered = parse_discovery_output(result.stdout)
+        except Exception as exc:
+            print(f"Host discovery failed; continuing with the static list: {exc}")
+            return hosts
+
+        domain = self._domain_suffix()
+        known = {h.split(".", 1)[0] for h in self.hosts}
+        extra = [h + "." + domain for h in discovered if h not in known]
+        if extra:
+            names = ", ".join(h.split(".")[0] for h in extra)
+            print(f"Discovered {len(extra)} additional hosts: {names}")
+            hosts.extend(extra)
+        return hosts
+
+    def _domain_suffix(self) -> str:
+        if not self.hosts:
+            return "informatik.uni-hamburg.de"
+        return self.hosts[0].split(".", 1)[1]
 
     def _build_remote_command(self, metrics: list[Metric]) -> str:
         cmd = ""

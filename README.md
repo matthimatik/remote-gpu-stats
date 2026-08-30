@@ -21,3 +21,5 @@ Hosts that do not respond within 5 seconds are skipped and reported as such; the
 # Example
 
 ![Example Screenshot](example.png)
+
+https://www.inf.uni-hamburg.de/inst/irz/infrastructure/news.html

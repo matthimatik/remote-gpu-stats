@@ -15,7 +15,8 @@ CLI that SSHs into the Uni Hamburg informatik GPU cluster and prints a rich tabl
 
 ## Architecture
 
-- `cli.py` is the entrypoint and holds hardcoded cluster topology: `GATEWAY_HOST` (`rzssh1...`) and the `HOSTS`/`IDX` lists. Changing which hosts are queried means editing these constants.
+- `cli.py` is the entrypoint and holds hardcoded cluster topology: `GATEWAY_HOST` (`rzssh1...`), the `IDX`/`BLADES`/`CVGPUS`/`EXTRA_HOSTS` lists that build `HOSTS`, and the DNS probe ranges `DISCOVERY_PREFIXES`. Changing which hosts are queried means editing these constants.
+- `host_discovery.py` builds a single gateway-side `getent hosts` enumeration command (`build_discovery_command`) and parses its output (`parse_discovery_output`). By default (disable with `--no-discover`) the collector runs this one command through the already-open gateway connection and merges any resolving hosts into the query set, so newly-added machines are not missed. Discovery is best-effort: on any failure it logs a warning and the static list is still queried.
 - `metrics_collector.py` runs one shell command built from all metrics per host, serially, through a `SerialGroup` behind the gateway. The serially-query (not parallel) + watchdog design is intentional: the gateway enforces a per-connection session limit. Don't "optimize" it to parallel.
 - `~/.ssh/config` is deliberately disabled (empty `SSHConfig`) so user HostName transforms don't rewrite the FQDN hosts; keep it that way.
 - Each `metrics/*.py` defines a `Metric` subclass with `identifier` (a `name:`-prefixed shell echo line), a `command`, and a `parse()`. Adding a metric requires registering it in **two** places: `metrics/__init__.py` imports and the `METRICS` list in `MetricsCollector`. `parse()` returns values keyed by string; errors are folded into the dict (e.g. `{"error": "parse"}`), exceptions are not thrown.
