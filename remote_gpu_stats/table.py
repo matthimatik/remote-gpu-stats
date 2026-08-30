@@ -68,7 +68,9 @@ def make_table(results: dict) -> Table:
                 else f"{g['vram_used']:.1f}/-"
                 for g in gpus
             )
-            gpu_names = "\n".join(fmt_gpu(g) + " " + g["name"] for g in gpus)
+            gpu_names = "\n".join(
+                ("" if single_gpu else fmt_gpu(g) + " ") + g["name"] for g in gpus
+            )
         else:
             avg_gpu = 0
             gpu_util_cell = "-"
