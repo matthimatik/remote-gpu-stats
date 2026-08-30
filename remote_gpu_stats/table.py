@@ -23,8 +23,14 @@ def make_table(results: dict) -> Table:
 
     def host_key(item):
         host, _ = item
-        match = re.search(r"\d+", host)
-        return int(match.group()) if match else float("inf")
+        # Group hosts by family, then sort numerically within each family.
+        # Order: ccblade, cvpc, kogspc, cvgpu; unknown families last.
+        family_order = {"ccblade": 0, "cvpc": 1, "kogspc": 2, "cvgpu": 3}
+        match = re.match(r"([a-z]+)(\d+)$", host, re.IGNORECASE)
+        if not match:
+            return len(family_order), float("inf")
+        family, index = match.groups()
+        return family_order.get(family.lower(), len(family_order)), int(index)
 
     def colorize(val: float, low=40, mid=70):
         if val < low:
