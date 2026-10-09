@@ -2,8 +2,11 @@ import argparse
 import getpass
 import os
 
+from rich import box
 from rich.console import Console
+from rich.table import Table
 
+from remote_gpu_stats.history import list_snapshots, load_snapshot, save_snapshot
 from remote_gpu_stats.host_discovery import build_discovery_command
 from remote_gpu_stats.metrics_collector import MetricsCollector
 from remote_gpu_stats.table import make_table
@@ -40,7 +43,8 @@ def cli():
         description="Collect and display system metrics from remote hosts."
     )
     parser.add_argument(
-        "username", type=str, help="SSH username for the remote hosts",
+        "username", type=str, nargs="?", help="SSH username for the remote hosts "
+        "(required unless viewing history)",
     )
     parser.add_argument(
         "--use-default-key",
@@ -56,7 +60,102 @@ def cli():
         help="Skip DNS host discovery through the gateway and query only "
              "the static host list.",
     )
-    return parser.parse_args()
+    history_group = parser.add_mutually_exclusive_group()
+    history_group.add_argument(
+        "--history",
+        action="store_true",
+        help="List saved runs from previous executions instead of "
+             "collecting fresh metrics. No cluster access needed.",
+    )
+    history_group.add_argument(
+        "--show",
+        type=int,
+        metavar="N",
+        help="Re-display saved run N (1 = most recent) instead of "
+             "collecting fresh metrics.",
+    )
+    history_group.add_argument(
+        "--latest",
+        action="store_true",
+        help="Re-display the most recent saved run (same as --show 1).",
+    )
+    args = parser.parse_args()
+
+    viewing = args.history or args.show is not None or args.latest
+    if viewing and (args.username or args.use_default_key or args.no_discover):
+        parser.error(
+            "history flags cannot be combined with username or collection "
+            "flags (--use-default-key, --no-discover)"
+        )
+    if not viewing and not args.username:
+        parser.error("username is required unless --history/--show/--latest is given")
+    if args.show is not None and args.show < 1:
+        parser.error("--show must be >= 1 (1 = most recent run)")
+    return args
+
+
+def show_history(console: Console, args):
+    snapshots = list_snapshots()
+    no_runs_message = (
+        "No saved runs yet. Collect once with "
+        "[bold]remote-gpu-stats <username>[/bold] to create one."
+    )
+
+    if args.history:
+        if not snapshots:
+            console.print(no_runs_message)
+            return
+        table = Table(
+            title="Previous Runs",
+            box=box.MINIMAL_DOUBLE_HEAD,
+            header_style="bold magenta",
+        )
+        table.add_column("#", justify="right")
+        table.add_column("Saved")
+        table.add_column("Age", justify="right")
+        table.add_column("Hosts", justify="right")
+        table.add_column("Username")
+        for i, s in enumerate(snapshots, start=1):
+            saved = (
+                s["saved_at"].strftime("%Y-%m-%d %H:%M:%S")
+                if s["saved_at"]
+                else "?"
+            )
+            table.add_row(str(i), saved, s["age"], str(s["host_count"]), s["username"])
+        console.print(table)
+        console.print(
+            "[dim]View a run with --show <N> (1 = most recent) or --latest[/dim]"
+        )
+        return
+
+    if not snapshots:
+        console.print(no_runs_message)
+        raise SystemExit(1)
+
+    index = 1 if args.latest else args.show
+    if index > len(snapshots):
+        console.print(
+            f"Only {len(snapshots)} saved run(s) available; "
+            f"--show {index} is out of range."
+        )
+        raise SystemExit(1)
+
+    snapshot = snapshots[index - 1]
+    try:
+        envelope = load_snapshot(snapshot["path"])
+    except (OSError, ValueError, KeyError) as e:
+        console.print(f"Could not load snapshot: {e}")
+        raise SystemExit(1)
+
+    if snapshot["saved_at"]:
+        title = (
+            "Cluster Overview \u2014 saved "
+            f"{snapshot['saved_at'].strftime('%Y-%m-%d %H:%M:%S')} "
+            f"({snapshot['age']})"
+        )
+    else:
+        title = "Cluster Overview \u2014 saved run"
+    console.print(make_table(envelope["results"], title=title))
 
 
 def resolve_default_key() -> str:
@@ -105,6 +204,10 @@ def main():
     args = cli()
     console = Console()
 
+    if args.history or args.show is not None or args.latest:
+        show_history(console, args)
+        return
+
     password = None
     key_filename = None
     if args.use_default_key:
@@ -131,6 +234,11 @@ def main():
 
     # pprint(results)
     console.print(make_table(results))
+    if save_snapshot(results, args.username):
+        console.print(
+            "\n[dim]Snapshot saved \u2014 browse past runs with "
+            "--history or --show 1[/dim]"
+        )
 
 if __name__ == "__main__":
     main()

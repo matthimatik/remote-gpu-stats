@@ -3,9 +3,9 @@ from rich import box
 from rich.table import Table
 
 
-def make_table(results: dict) -> Table:
+def make_table(results: dict, title: str = "Cluster Overview") -> Table:
     table = Table(
-        title="Cluster Overview",
+        title=title,
         box=box.MINIMAL_DOUBLE_HEAD,
         header_style="bold magenta",
     )

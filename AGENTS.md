@@ -21,6 +21,7 @@ CLI that SSHs into the Uni Hamburg informatik GPU cluster and prints a rich tabl
 - `~/.ssh/config` is deliberately disabled (empty `SSHConfig`) so user HostName transforms don't rewrite the FQDN hosts; keep it that way.
 - Each `metrics/*.py` defines a `Metric` subclass with `identifier` (a `name:`-prefixed shell echo line), a `command`, and a `parse()`. Adding a metric requires registering it in **two** places: `metrics/__init__.py` imports and the `METRICS` list in `MetricsCollector`. `parse()` returns values keyed by string; errors are folded into the dict (e.g. `{"error": "parse"}`), exceptions are not thrown.
 - `table.py` consumes the parsed dict and expects specific keys (`cpu`, `ram_used`, `ram_total`, `users`, `top_cpu_user`, `num_cpu_cores`, `gpus`, `disk_usage`); keep the metric keys in sync with it.
+- `history.py` persists every successful collection run as a JSON snapshot (`results` + `saved_at`) in a user cache dir and prunes beyond 50; `--history`/`--show N`/`--latest` replay snapshots through `make_table` without any cluster/auth work. `save_snapshot` never raises (a cache failure must not break a successful run). Snapshots are plain JSON — keep `results` JSON-serializable.
 
 ## Style
 

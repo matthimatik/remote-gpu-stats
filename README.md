@@ -15,6 +15,17 @@ By default you are prompted for your SSH password.
 | Flag                | Description                                                                                      |
 |---------------------|--------------------------------------------------------------------------------------------------|
 | `--use-default-key` | Authenticate with your local SSH key instead of a password (see above).                          |
+| `--history`         | List saved runs from previous executions. Requires no cluster access.                            |
+| `--show <N>`        | Re-display saved run N (1 = most recent) instead of collecting fresh metrics.                    |
+| `--latest`          | Re-display the most recent saved run (same as `--show 1`).                                       |
+
+## Saved run history
+
+Every successful collection is automatically saved as a JSON snapshot so you can inspect results from earlier runs without paying the collection time again. Snapshots live in `%LOCALAPPDATA%\remote-gpu-stats\` on Windows and `~/.cache/remote-gpu-stats/` elsewhere; the 50 most recent runs are kept.
+
+- `remote-gpu-stats --history` lists saved runs with timestamps and relative ages.
+- `remote-gpu-stats --show 3` re-renders run #3; `--latest` (or `--show 1`) shows the most recent one.
+- The history flags work without SSH auth and can be used standalone (no `username` required).
 
 Hosts that do not respond within 5 seconds are skipped and reported as such; the remaining hosts are still collected.
 
